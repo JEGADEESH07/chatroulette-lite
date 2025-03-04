@@ -98,6 +98,26 @@ app.post('/api/user/update-preferences', async (req, res) => {
     }
 });
 
+const jwt = require('jsonwebtoken');
+const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key';
+
+app.use((req, res, next) => {
+    if (req.path === '/api/users/nearby') return next(); // Allow public access to nearby users
+    const token = req.headers['authorization'];
+    if (!token) return res.status(401).json({ error: 'No token provided' });
+    jwt.verify(token, SECRET_KEY, (err, decoded) => {
+        if (err) return res.status(403).json({ error: 'Invalid token' });
+        req.userId = decoded.userId;
+        next();
+    });
+});
+
+app.post('/api/login', (req, res) => {
+    const { username } = req.body;
+    const token = jwt.sign({ userId: username }, SECRET_KEY, { expiresIn: '1h' });
+    res.json({ token });
+});
+
 app.post('/message', (req, res) => {
     pusher.trigger('chat-channel', 'message', { text: req.body.text });
     res.sendStatus(200);
@@ -119,15 +139,9 @@ app.post('/api/user/toggle-location', async (req, res) => {
     }
 });
 
-app.post('/api/connect/:userId', async (req, res) => {
+app.post('/api/connect/:userId', (req, res) => {
     const { userId } = req.params;
-    const targetUser = await User.findById(userId);
-    if (!targetUser || !targetUser.online) {
-        return res.status(404).json({ error: 'User not found or offline' });
-    }
-    // Simulate pairing (in a real app, use presence channels or a queue)
-    pusher.trigger('chat-channel', 'pair', { initiator: 'you', target: userId });
-    res.json({ success: true, pairedWith: userId });
+    if (!req.userId) return res.status(403).json({ error: 'Authentication required' });
 });
 
 const PORT = process.env.PORT || 5000;

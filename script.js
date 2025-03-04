@@ -1,6 +1,6 @@
 // Pusher setup (replace with your actual Pusher credentials from Render environment or dashboard)
-const pusher = new Pusher('YOUR_PUSHER_KEY', {
-    cluster: 'YOUR_PUSHER_CLUSTER'
+const pusher = new Pusher('b14541edb68153cc4354', {
+    cluster: 'ap2'
 });
 const channel = pusher.subscribe('chat-channel');
 
@@ -132,9 +132,11 @@ function showAvailablePersons(radius = 5000) {
         navigator.geolocation.getCurrentPosition(async position => {
             const lat = position.coords.latitude;
             const lon = position.coords.longitude;
+            console.log('Geolocation:', { lat, lon });
 
             try {
                 const response = await fetch(`https://chatroulette-lite.onrender.com/api/users/nearby?latitude=${lat}&longitude=${lon}&radius=${radius}`);
+                console.log('Fetch response status:', response.status);
                 if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 const nearbyUsers = await response.json();
                 console.log('Fetched users:', nearbyUsers);
