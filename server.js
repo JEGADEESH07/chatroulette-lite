@@ -119,5 +119,16 @@ app.post('/api/user/toggle-location', async (req, res) => {
     }
 });
 
+app.post('/api/connect/:userId', async (req, res) => {
+    const { userId } = req.params;
+    const targetUser = await User.findById(userId);
+    if (!targetUser || !targetUser.online) {
+        return res.status(404).json({ error: 'User not found or offline' });
+    }
+    // Simulate pairing (in a real app, use presence channels or a queue)
+    pusher.trigger('chat-channel', 'pair', { initiator: 'you', target: userId });
+    res.json({ success: true, pairedWith: userId });
+});
+
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));

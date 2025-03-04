@@ -1,10 +1,11 @@
-// Pusher setup (replace with your credentials from .env or Heroku config)
+// Pusher setup (replace with your actual Pusher credentials from Render environment or dashboard)
 const pusher = new Pusher('YOUR_PUSHER_KEY', {
     cluster: 'YOUR_PUSHER_CLUSTER'
 });
 const channel = pusher.subscribe('chat-channel');
 
 // DOM elements
+const port = process.env.PORT || 4000;
 const connectBtn = document.getElementById('connect-btn');
 const status = document.getElementById('status');
 const chatBox = document.getElementById('chat-box');
@@ -21,6 +22,7 @@ const consentNo = document.getElementById('consent-no');
 // State
 let isConnected = false;
 let timeLeft = 300; // 5 minutes in seconds
+let personId = null; // To track the connected user ID
 
 // Random topic starters
 const topics = [
@@ -46,7 +48,7 @@ function showTab(tabId) {
     }
 }
 
-// Connect button logic
+// Connect button logic (for random chat)
 connectBtn.addEventListener('click', () => {
     if (!isConnected) {
         isConnected = true;
@@ -57,17 +59,15 @@ connectBtn.addEventListener('click', () => {
         topicDiv.classList.remove('hidden');
         timerDiv.classList.remove('hidden');
 
-        // Show random topic
         const randomTopic = topics[Math.floor(Math.random() * topics.length)];
         topicDiv.textContent = `Topic Starter: ${randomTopic}`;
-
-        // Start timer
         startTimer();
 
-        // Listen for incoming messages
         channel.bind('message', (data) => {
-            chatBox.innerHTML += `<p><strong>Stranger:</strong> ${data.text}</p>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
+            if (data.from !== 'you') { // Avoid echoing your own messages
+                chatBox.innerHTML += `<p><strong>Stranger (${data.from || 'Unknown'}):</strong> ${data.text}</p>`;
+                chatBox.scrollTop = chatBox.scrollHeight;
+            }
         });
     } else {
         resetChat();
@@ -84,15 +84,15 @@ messageInput.addEventListener('keypress', (e) => {
 
 function sendMessage() {
     const message = messageInput.value.trim();
-    if (message) {
+    if (message && isConnected) {
         const now = new Date().toLocaleTimeString();
         chatBox.innerHTML += `<p class="user1"><strong>You:</strong> ${message} <span class="time">${now}</span></p>`;
         chatBox.scrollTop = chatBox.scrollHeight;
 
-        fetch('http://localhost:5000/message', {
+        fetch('https://chatroulette-lite.onrender.com/message', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: message, from: 'you', to: personId }) // personId from connectToPerson
+            body: JSON.stringify({ text: message, from: personId || 'you', to: personId ? 'stranger' : undefined })
         }).catch(err => console.error('Error sending message:', err));
         messageInput.value = '';
     }
@@ -115,6 +115,7 @@ function startTimer() {
 // Reset chat
 function resetChat() {
     isConnected = false;
+    personId = null;
     connectBtn.textContent = 'Connect';
     status.textContent = 'Disconnected. Click "Connect" to start again!';
     chatBox.classList.add('hidden');
@@ -133,7 +134,7 @@ function showAvailablePersons(radius = 5000) {
             const lon = position.coords.longitude;
 
             try {
-                const response = await fetch(`http://localhost:5000/api/users/nearby?latitude=${lat}&longitude=${lon}&radius=${radius}`);
+                const response = await fetch(`https://chatroulette-lite.onrender.com/api/users/nearby?latitude=${lat}&longitude=${lon}&radius=${radius}`);
                 if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                 const nearbyUsers = await response.json();
                 console.log('Fetched users:', nearbyUsers);
@@ -163,42 +164,60 @@ function showAvailablePersons(radius = 5000) {
             connectPersonBtn.classList.remove('hidden');
         });
     } else {
-        // ... (rest of the code)
+        peopleList.innerHTML = '<p>Geolocation not supported. Showing mock data.</p>';
+        const mockPersons = [
+            { id: 1, name: 'Alex (Online)', distance: '1.2 km away' },
+            { id: 2, name: 'Sam (Online)', distance: '2.5 km away' }
+        ];
+        mockPersons.forEach(person => {
+            peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson(${person.id})">Connect</button></p>`;
+        });
+        connectPersonBtn.classList.remove('hidden');
     }
 }
 
 // Connect to a nearby person
-function connectToPerson(personId) {
-    alert(`Connecting to person ID ${personId}...`); // Temporary feedback
-    // Simulate pairing (in a real app, this would involve Pusher or backend logic)
-    isConnected = true;
-    connectBtn.textContent = 'Disconnect';
-    status.textContent = `Connected! Chatting with User ${personId}...`;
-    chatBox.classList.remove('hidden');
-    document.querySelector('.input-container').classList.remove('hidden');
-    topicDiv.classList.remove('hidden');
-    timerDiv.classList.remove('hidden');
-
-    const randomTopic = topics[Math.floor(Math.random() * topics.length)];
-    topicDiv.textContent = `Topic Starter: ${randomTopic}`;
-    startTimer();
-
-    // Bind to receive messages from the paired user
-    channel.bind('message', (data) => {
-        if (data.from !== personId) { // Avoid echoing your own messages
-            chatBox.innerHTML += `<p><strong>Stranger (${data.from}):</strong> ${data.text}</p>`;
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-    });
-
-    // Send initial connection message to the paired user (via Pusher)
-    fetch(`http://localhost:5000/message`, {
+function connectToPerson(id) {
+    personId = id;
+    fetch(`https://chatroulette-lite.onrender.com/api/connect/${personId}`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text: `Connected with User ${personId}`, from: 'you', to: personId })
-    }).catch(err => console.error('Error sending connection message:', err));
+        headers: { 'Content-Type': 'application/json' }
+    })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert(`Connected to User ${personId}!`);
+                isConnected = true;
+                connectBtn.textContent = 'Disconnect';
+                status.textContent = `Connected! Chatting with User ${personId}...`;
+                chatBox.classList.remove('hidden');
+                document.querySelector('.input-container').classList.remove('hidden');
+                topicDiv.classList.remove('hidden');
+                timerDiv.classList.remove('hidden');
 
-    showTab('chat'); // Switch to chat tab
+                const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+                topicDiv.textContent = `Topic Starter: ${randomTopic}`;
+                startTimer();
+
+                channel.bind('message', (data) => {
+                    if (data.to === personId && data.from !== 'you') {
+                        const now = new Date().toLocaleTimeString();
+                        chatBox.innerHTML += `<p><strong>Stranger (${data.from}):</strong> ${data.text} <span class="time">${now}</span></p>`;
+                        chatBox.scrollTop = chatBox.scrollHeight;
+                    }
+                });
+
+                fetch('https://chatroulette-lite.onrender.com/message', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: `Connected with User ${personId}`, from: 'you', to: personId })
+                }).catch(err => console.error('Error sending connection message:', err));
+                showTab('chat');
+            } else {
+                alert('Connection failed: ' + data.error);
+            }
+        })
+        .catch(err => console.error('Connection error:', err));
 }
 
 // Consent modal
@@ -231,7 +250,7 @@ if (localStorage.getItem('locationConsent') === 'true') {
 
 function revokeLocation() {
     localStorage.setItem('locationConsent', 'false');
-    fetch('/api/user/location', {
+    fetch('https://chatroulette-lite.onrender.com/api/user/location', {
         method: 'DELETE',
         headers: { 'Content-Type': 'application/json' }
     }).catch(err => console.error('Error revoking location:', err));
@@ -247,7 +266,7 @@ function revokeLocation() {
 }
 
 function showDashboard(userId) {
-    fetch(`/api/user/dashboard?userId=${userId}`)
+    fetch(`https://chatroulette-lite.onrender.com/api/user/dashboard?userId=${userId}`)
         .then(response => response.json())
         .then(data => {
             document.getElementById('dashboard-content').innerHTML = `
@@ -260,7 +279,7 @@ function showDashboard(userId) {
         .catch(error => console.error('Error loading dashboard:', error));
 
     document.getElementById('toggle-location-btn').addEventListener('click', () => {
-        fetch('/api/user/toggle-location', {
+        fetch('https://chatroulette-lite.onrender.com/api/user/toggle-location', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, shareLocation: false })
@@ -274,7 +293,7 @@ function showDashboard(userId) {
         const topics = document.getElementById('topics').value;
         const language = document.getElementById('language').value;
         const ageRange = document.getElementById('ageRange').value;
-        fetch('/api/user/update-preferences', {
+        fetch('https://chatroulette-lite.onrender.com/api/user/update-preferences', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ userId, preferences: { topics: topics.split(','), language, ageRange } })

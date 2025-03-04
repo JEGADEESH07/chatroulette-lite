@@ -16,6 +16,10 @@ async function addTestUsers() {
         location: { type: 'Point', coordinates: [80.019342, 13.029616] }, // Your current location (longitude, latitude)
             preferences: { topics: ['chat'], language: 'en', ageRange: { min: 18, max: 30 } }
         },
+        {
+            location: { type: 'Point', coordinates: [80.019345, 13.029617] }, // Your current location (longitude, latitude)
+                preferences: { topics: ['chat'], language: 'en', ageRange: { min: 18, max: 30 } }
+            },
     ];
     await User.insertMany(users);
     console.log('Test users added');
