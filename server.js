@@ -3,22 +3,21 @@ const mongoose = require('mongoose');
 const Pusher = require('pusher');
 const cors = require('cors');
 require('dotenv').config();
+const path = require('path');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
+// Serve static files from the root directory
+app.use(express.static(path.join(__dirname)));
+
+// MongoDB connection
 const uri = process.env.MONGODB_URI || "mongodb+srv://chatuser:securepassword123@chatroulette-lite-clust.amhu0.mongodb.net/?retryWrites=true&w=majority&appName=chatroulette-lite-cluster";
 mongoose.connect(uri)
     .then(() => console.log('MongoDB Atlas connected successfully'))
     .catch(err => {
-        console.error('MongoDB connection error:', {
-            message: err.message,
-            name: err.name,
-            code: err.code,
-            syscall: err.syscall,
-            hostname: err.hostname
-        });
+        console.error('MongoDB connection error:', err);
         process.exit(1);
     });
 
@@ -30,16 +29,13 @@ const pusher = new Pusher({
     useTLS: true
 });
 
-const User = require('./models/User'); // Import the model from models/User.js
+const User = require('./models/User');
 
-// Endpoints
+// API endpoints
 app.get('/api/users/nearby', async (req, res) => {
     const { latitude, longitude, radius = 5000, topics, language, ageRange } = req.query;
     try {
         console.log('Query params:', { latitude, longitude, radius, topics, language, ageRange });
-        if (isNaN(parseFloat(latitude)) || isNaN(parseFloat(longitude))) {
-            throw new Error('Invalid latitude or longitude');
-        }
         let matchQuery = {
             $geoNear: {
                 near: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
@@ -61,7 +57,7 @@ app.get('/api/users/nearby', async (req, res) => {
         console.log('Query result:', nearbyUsers);
         res.json(nearbyUsers);
     } catch (error) {
-        console.error('Error in /api/users/nearby:', error.stack); // Log full stack trace
+        console.error('Error in /api/users/nearby:', error.stack);
         res.status(500).json({ error: 'Error fetching nearby users', details: error.message });
     }
 });
@@ -98,31 +94,6 @@ app.post('/api/user/update-preferences', async (req, res) => {
     }
 });
 
-const jwt = require('jsonwebtoken');
-const SECRET_KEY = process.env.JWT_SECRET || 'your-secret-key';
-
-app.use((req, res, next) => {
-    if (req.path === '/api/users/nearby') return next(); // Allow public access to nearby users
-    const token = req.headers['authorization'];
-    if (!token) return res.status(401).json({ error: 'No token provided' });
-    jwt.verify(token, SECRET_KEY, (err, decoded) => {
-        if (err) return res.status(403).json({ error: 'Invalid token' });
-        req.userId = decoded.userId;
-        next();
-    });
-});
-
-app.post('/api/login', (req, res) => {
-    const { username } = req.body;
-    const token = jwt.sign({ userId: username }, SECRET_KEY, { expiresIn: '1h' });
-    res.json({ token });
-});
-
-app.post('/message', (req, res) => {
-    pusher.trigger('chat-channel', 'message', { text: req.body.text });
-    res.sendStatus(200);
-});
-
 app.post('/message', (req, res) => {
     const { text, from, to } = req.body;
     pusher.trigger('chat-channel', 'message', { text, from, to });
@@ -139,9 +110,21 @@ app.post('/api/user/toggle-location', async (req, res) => {
     }
 });
 
-app.post('/api/connect/:userId', (req, res) => {
+// Handle /api/connect without authentication (temporary)
+app.post('/api/connect/:userId', async (req, res) => {
     const { userId } = req.params;
-    if (!req.userId) return res.status(403).json({ error: 'Authentication required' });
+    const targetUser = await User.findById(userId);
+    if (!targetUser || !targetUser.online) {
+        return res.status(404).json({ error: 'User not found or offline' });
+    }
+    // Simulate pairing
+    pusher.trigger('chat-channel', 'pair', { initiator: req.body.from || 'you', target: userId });
+    res.json({ success: true, pairedWith: userId });
+});
+
+// Handle root route to serve index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 const PORT = process.env.PORT || 5000;
