@@ -114,13 +114,20 @@ app.post('/api/user/toggle-location', async (req, res) => {
 app.post('/api/connect/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
+        console.log('Pusher config:', {
+            appId: process.env.PUSHER_APP_ID,
+            key: process.env.PUSHER_KEY,
+            secret: process.env.PUSHER_SECRET,
+            cluster: process.env.PUSHER_CLUSTER
+        });
         const targetUser = await User.findById(userId);
         if (!targetUser || !targetUser.online) {
             return res.status(404).json({ error: 'User not found or offline' });
         }
         // Simulate pairing
         pusher.trigger('chat-channel', 'pair', { initiator: req.body.from || 'you', target: userId });
-        res.json({ success: true, pairedWith: userId }); // Ensure this is sent
+        console.log('Pusher trigger succeeded for user:', userId);
+        res.json({ success: true, pairedWith: userId });
     } catch (error) {
         console.error('Error in /api/connect:', error);
         res.status(500).json({ error: 'Internal server error', details: error.message });
