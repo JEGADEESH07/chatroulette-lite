@@ -316,6 +316,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    channel.bind('message', (data) => {
+        console.log('Received message event:', data);
+        if (data.to === personId && data.from !== 'you') {
+            const now = new Date().toLocaleTimeString();
+            chatBox.innerHTML += `<p><strong>Stranger (${data.from}):</strong> ${data.text} <span class="time">${now}</span></p>`;
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+    });
+
     // Initialize with chat tab active
     showTab('chat');
 });

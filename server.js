@@ -96,6 +96,7 @@ app.post('/api/user/update-preferences', async (req, res) => {
 
 app.post('/message', (req, res) => {
     const { text, from, to } = req.body;
+    console.log('Triggering message:', { text, from, to });
     pusher.trigger('chat-channel', 'message', { text, from, to });
     res.sendStatus(200);
 });
