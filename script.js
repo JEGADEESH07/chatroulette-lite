@@ -142,11 +142,11 @@ document.addEventListener('DOMContentLoaded', () => {
             const now = new Date().toLocaleTimeString();
             chatBox.innerHTML += `<p class="user1"><strong>You:</strong> ${message} <span class="time">${now}</span></p>`;
             chatBox.scrollTop = chatBox.scrollHeight;
-
+    
             fetch('https://chatroulette-lite.onrender.com/message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: message, from: personId || 'you', to: personId ? 'stranger' : undefined })
+                body: JSON.stringify({ text: message, from: personId || 'you', to: personId === 'you' ? 'stranger' : personId })
             }).catch(err => console.error('Error sending message:', err));
             messageInput.value = '';
         }
@@ -317,8 +317,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     channel.bind('message', (data) => {
-        console.log('Received message event:', data);
-        if (data.to === personId && data.from !== 'you') {
+        console.log('Received message event:', data); // Debug all received events
+        if (isConnected && data.from !== personId) { // Show messages from other users when connected
             const now = new Date().toLocaleTimeString();
             chatBox.innerHTML += `<p><strong>Stranger (${data.from}):</strong> ${data.text} <span class="time">${now}</span></p>`;
             chatBox.scrollTop = chatBox.scrollHeight;
