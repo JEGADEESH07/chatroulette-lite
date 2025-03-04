@@ -1,0 +1,6 @@
+MONGODB_URI=mongodb+srv://chatuser:securepassword123@chatroulette-lite-cluster.5k55w.mongodb.net/chatroulette?retryWrites=true&w=majority
+PUSHER_APP_ID=1949423
+PUSHER_APP_KEY=b14541edb68153cc4354
+PUSHER_APP_SECRET=PUSHER_APP_SECRET
+PUSHER_APP_CLUSTER=ap2
+PORT=5000
