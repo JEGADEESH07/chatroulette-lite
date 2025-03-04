@@ -56,8 +56,10 @@ document.addEventListener('DOMContentLoaded', () => {
             headers: { 'Content-Type': 'application/json' }
         })
             .then(response => {
+                console.log('Connect response status:', response.status);
+                console.log('Connect response text:', response.statusText); // Log raw response
                 if (!response.ok) {
-                    return response.json().then(err => Promise.reject(err));
+                    return response.text().then(text => Promise.reject({ status: response.status, message: text || 'Unknown error' }));
                 }
                 return response.json();
             })
@@ -95,7 +97,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             })
             .catch(err => {
-                alert('Connection failed! ' + (err.error || 'Unknown error'));
+                alert('Connection failed! ' + (err.message || 'Unknown error'));
                 console.error('Connection error:', err);
             });
     };

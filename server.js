@@ -113,13 +113,18 @@ app.post('/api/user/toggle-location', async (req, res) => {
 // Handle /api/connect without authentication (temporary)
 app.post('/api/connect/:userId', async (req, res) => {
     const { userId } = req.params;
-    const targetUser = await User.findById(userId);
-    if (!targetUser || !targetUser.online) {
-        return res.status(404).json({ error: 'User not found or offline' });
+    try {
+        const targetUser = await User.findById(userId);
+        if (!targetUser || !targetUser.online) {
+            return res.status(404).json({ error: 'User not found or offline' });
+        }
+        // Simulate pairing
+        pusher.trigger('chat-channel', 'pair', { initiator: req.body.from || 'you', target: userId });
+        res.json({ success: true, pairedWith: userId }); // Ensure this is sent
+    } catch (error) {
+        console.error('Error in /api/connect:', error);
+        res.status(500).json({ error: 'Internal server error', details: error.message });
     }
-    // Simulate pairing
-    pusher.trigger('chat-channel', 'pair', { initiator: req.body.from || 'you', target: userId });
-    res.json({ success: true, pairedWith: userId });
 });
 
 // Handle root route to serve index.html
