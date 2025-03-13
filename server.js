@@ -21,6 +21,7 @@ mongoose.connect(uri)
         process.exit(1);
     });
 
+// Pusher setup
 const pusher = new Pusher({
     appId: process.env.PUSHER_APP_ID,
     key: process.env.PUSHER_KEY,
@@ -30,6 +31,17 @@ const pusher = new Pusher({
 });
 
 const User = require('./models/User');
+
+// In-memory store for recent messages (simple deduplication, could be replaced with MongoDB)
+const recentMessages = new Set();
+
+const Message = mongoose.model('Message', new mongoose.Schema({
+    text: String,
+    from: String,
+    to: String,
+    messageId: String,
+    timestamp: { type: Date, default: Date.now }
+}));
 
 // API endpoints
 app.get('/api/users/nearby', async (req, res) => {
@@ -94,11 +106,44 @@ app.post('/api/user/update-preferences', async (req, res) => {
     }
 });
 
-app.post('/message', (req, res) => {
-    const { text, from, to } = req.body;
-    console.log('Triggering message:', { text, from, to });
-    pusher.trigger('chat-channel', 'message', { text, from, to });
-    res.sendStatus(200);
+app.post('/message', async (req, res) => {
+    const { text, from, to, messageId } = req.body;
+    console.log('Received message:', { text, from, to, messageId });
+
+    // Deduplication check
+    if (messageId && recentMessages.has(messageId)) {
+        console.log('Duplicate message detected, skipping:', messageId);
+        return res.sendStatus(200);
+    }
+
+    try {
+        // Store message in MongoDB (optional, for persistence)
+        await Message.create({ text, from, to, messageId });
+
+        // Trigger Pusher event
+        pusher.trigger('chat-channel', 'message', { text, from, to, messageId }, (error) => {
+            if (error) {
+                console.error('Pusher trigger error:', error);
+                return res.status(500).json({ error: 'Failed to trigger Pusher event' });
+            }
+        });
+
+        // Add to recent messages set for deduplication
+        if (messageId) recentMessages.add(messageId);
+
+        // Clean up old messages (keep last 100 unique messages)
+        if (recentMessages.size > 100) {
+            const iterator = recentMessages.values();
+            for (let i = 0; i < recentMessages.size - 100; i++) {
+                recentMessages.delete(iterator.next().value);
+            }
+        }
+
+        res.sendStatus(200);
+    } catch (error) {
+        console.error('Error processing message:', error.stack);
+        res.status(500).json({ error: 'Error processing message', details: error.message });
+    }
 });
 
 app.post('/api/user/toggle-location', async (req, res) => {

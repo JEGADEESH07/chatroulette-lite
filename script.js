@@ -12,6 +12,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const messageInput = document.getElementById('message-input');
     const sendBtn = document.getElementById('send-btn');
     const topicDiv = document.getElementById('topic');
+    const topicText = document.getElementById('topic-text');
     const timerDiv = document.getElementById('timer');
     const peopleList = document.getElementById('people-list');
     const connectPersonBtn = document.getElementById('connect-person-btn');
@@ -23,13 +24,14 @@ document.addEventListener('DOMContentLoaded', () => {
     let isConnected = false;
     let timeLeft = 300; // 5 minutes in seconds
     let personId = null; // To track the connected user ID
+    let lastMessageId = ''; // For deduplication
 
     // Random topic starters
     const topics = [
-        'What’s your dream vacation spot?',
-        'Talk about your favorite movie',
-        'What’s the best thing you’ve eaten recently?',
-        'Share a fun fact you know'
+        "What's your dream vacation spot?",
+        "Talk about your favorite movie",
+        "What's the best thing you've eaten recently?",
+        "Share a fun fact you know"
     ];
 
     // Expose showTab to global scope
@@ -57,7 +59,6 @@ document.addEventListener('DOMContentLoaded', () => {
         })
             .then(response => {
                 console.log('Connect response status:', response.status);
-                console.log('Connect response text:', response.statusText); // Log raw response
                 if (!response.ok) {
                     return response.text().then(text => Promise.reject({ status: response.status, message: text || 'Unknown error' }));
                 }
@@ -65,27 +66,16 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .then(data => {
                 if (data.success) {
-                    alert(`Connected to User ${personId}!`);
                     isConnected = true;
                     connectBtn.textContent = 'Disconnect';
                     status.textContent = `Connected! Chatting with User ${personId}...`;
-                    chatBox.classList.remove('hidden');
                     document.querySelector('.input-container').classList.remove('hidden');
                     topicDiv.classList.remove('hidden');
-                    timerDiv.classList.remove('hidden');
-    
+
                     const randomTopic = topics[Math.floor(Math.random() * topics.length)];
-                    topicDiv.textContent = `Topic Starter: ${randomTopic}`;
+                    topicText.textContent = randomTopic;
                     startTimer();
-    
-                    channel.bind('message', (data) => {
-                        if (data.to === personId && data.from !== 'you') {
-                            const now = new Date().toLocaleTimeString();
-                            chatBox.innerHTML += `<p><strong>Stranger (${data.from}):</strong> ${data.text} <span class="time">${now}</span></p>`;
-                            chatBox.scrollTop = chatBox.scrollHeight;
-                        }
-                    });
-    
+
                     fetch('https://chatroulette-lite.onrender.com/message', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -102,27 +92,10 @@ document.addEventListener('DOMContentLoaded', () => {
             });
     };
 
-    // Connect button logic (for random chat)
+    // Connect button logic (simplified to prompt for nearby users)
     connectBtn.addEventListener('click', () => {
         if (!isConnected) {
-            isConnected = true;
-            connectBtn.textContent = 'Disconnect';
-            status.textContent = 'Connected! Chatting with a stranger...';
-            chatBox.classList.remove('hidden');
-            document.querySelector('.input-container').classList.remove('hidden');
-            topicDiv.classList.remove('hidden');
-            timerDiv.classList.remove('hidden');
-
-            const randomTopic = topics[Math.floor(Math.random() * topics.length)];
-            topicDiv.textContent = `Topic Starter: ${randomTopic}`;
-            startTimer();
-
-            channel.bind('message', (data) => {
-                if (data.from !== 'you') {
-                    chatBox.innerHTML += `<p><strong>Stranger (${data.from || 'Unknown'}):</strong> ${data.text}</p>`;
-                    chatBox.scrollTop = chatBox.scrollHeight;
-                }
-            });
+            showTab('people');
         } else {
             resetChat();
         }
@@ -140,15 +113,17 @@ document.addEventListener('DOMContentLoaded', () => {
         const message = messageInput.value.trim();
         if (message && isConnected) {
             const now = new Date().toLocaleTimeString();
-            chatBox.innerHTML += `<p class="user1"><strong>You:</strong> ${message} <span class="time">${now}</span></p>`;
+            const messageId = `${message}-${now}`; // Unique ID for deduplication
+            chatBox.innerHTML += `<div class="message sent"><span>${message}</span><span class="time">${now}</span></div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
-    
+
             fetch('https://chatroulette-lite.onrender.com/message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ text: message, from: personId || 'you', to: personId === 'you' ? 'stranger' : personId })
+                body: JSON.stringify({ text: message, from: personId || 'you', to: personId === 'you' ? 'stranger' : personId, messageId })
             }).catch(err => console.error('Error sending message:', err));
             messageInput.value = '';
+            lastMessageId = messageId;
         }
     }
 
@@ -171,13 +146,12 @@ document.addEventListener('DOMContentLoaded', () => {
         isConnected = false;
         personId = null;
         connectBtn.textContent = 'Connect';
-        status.textContent = 'Disconnected. Click "Connect" to start again!';
-        chatBox.classList.add('hidden');
-        document.querySelector('.input-container').classList.add('hidden');
+        status.textContent = 'Click "Connect" to start chatting!';
         topicDiv.classList.add('hidden');
-        timerDiv.classList.add('hidden');
+        document.querySelector('.input-container').classList.add('hidden');
         chatBox.innerHTML = '';
         timeLeft = 300;
+        lastMessageId = '';
     }
 
     // Function to show available persons
@@ -215,7 +189,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     { id: 2, name: 'Sam (Online)', distance: '2.5 km away' }
                 ];
                 mockPersons.forEach(person => {
-                    peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson(${person.id})">Connect</button></p>`;
+                    peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson('${person.id}')">Connect</button></p>`;
                 });
                 connectPersonBtn.classList.remove('hidden');
             });
@@ -226,7 +200,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 { id: 2, name: 'Sam (Online)', distance: '2.5 km away' }
             ];
             mockPersons.forEach(person => {
-                peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson(${person.id})">Connect</button></p>`;
+                peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson('${person.id}')">Connect</button></p>`;
             });
             connectPersonBtn.classList.remove('hidden');
         }
@@ -250,7 +224,7 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 2, name: 'Sam (Online)', distance: '2.5 km away' }
         ];
         mockPersons.forEach(person => {
-            peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson(${person.id})">Connect</button></p>`;
+            peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson('${person.id}')">Connect</button></p>`;
         });
         connectPersonBtn.classList.remove('hidden');
     });
@@ -260,7 +234,8 @@ document.addEventListener('DOMContentLoaded', () => {
         showAvailablePersons();
     }
 
-    function revokeLocation() {
+    // Revoke location
+    window.revokeLocation = function() {
         localStorage.setItem('locationConsent', 'false');
         fetch('https://chatroulette-lite.onrender.com/api/user/location', {
             method: 'DELETE',
@@ -272,11 +247,12 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 2, name: 'Sam (Online)', distance: '2.5 km away' }
         ];
         mockPersons.forEach(person => {
-            peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson(${person.id})">Connect</button></p>`;
+            peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson('${person.id}')">Connect</button></p>`;
         });
         connectPersonBtn.classList.remove('hidden');
-    }
+    };
 
+    // Dashboard
     function showDashboard(userId) {
         fetch(`https://chatroulette-lite.onrender.com/api/user/dashboard?userId=${userId}`)
             .then(response => response.json())
@@ -289,17 +265,6 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             })
             .catch(error => console.error('Error loading dashboard:', error));
-
-        document.getElementById('toggle-location-btn').addEventListener('click', () => {
-            fetch('https://chatroulette-lite.onrender.com/api/user/toggle-location', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ userId, shareLocation: false })
-            })
-                .then(response => response.json())
-                .then(data => alert('Location sharing updated'))
-                .catch(error => console.error('Error toggling location:', error));
-        });
 
         document.getElementById('update-preferences-btn').addEventListener('click', () => {
             const topics = document.getElementById('topics').value;
@@ -316,12 +281,15 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    // Pusher message handler with deduplication
     channel.bind('message', (data) => {
-        console.log('Received message event:', data); // Debug all received events
-        if (isConnected && data.from !== personId) { // Show messages from other users when connected
+        console.log('Received message event:', data);
+        const messageId = data.messageId || `${data.text}-${data.from}`;
+        if (isConnected && data.from !== personId && messageId !== lastMessageId) {
             const now = new Date().toLocaleTimeString();
-            chatBox.innerHTML += `<p><strong>Stranger (${data.from}):</strong> ${data.text} <span class="time">${now}</span></p>`;
+            chatBox.innerHTML += `<div class="message received"><strong>Stranger (${data.from}):</strong> <span>${data.text}</span><span class="time">${now}</span></div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
+            lastMessageId = messageId;
         }
     });
 
