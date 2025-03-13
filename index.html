@@ -7,32 +7,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <div class="container">
-        <h1>ChatRoulette Lite</h1>
-        <div class="tabs">
-            <button class="tab-btn active" onclick="showTab('chat')">Chat Now</button>
-            <button class="tab-btn" onclick="showTab('people')">Available Persons</button>
-        </div>
-        <div id="chat-tab" class="tab-content active">
-            <div id="status" class="status-bar">Click "Connect" to start chatting!</div>
-            <div id="topic" class="topic-card hidden"></div>
-            <div id="timer" class="timer-box hidden">5:00</div>
-            <div id="chat-box" class="chat-console hidden"></div>
-            <div class="input-container hidden">
-                <input id="message-input" class="input-field" type="text" placeholder="Type a message...">
-                <button id="send-btn" class="send-btn">✈</button>
-            </div>
-            <button id="connect-btn" class="connect-btn">Connect</button>
-        </div>
-        <div id="people-tab" class="tab-content">
-            <div id="people-list" class="people-list">
-                <p>Fetching available persons in your area...</p>
-            </div>
-            <button id="connect-person-btn" class="connect-btn hidden">Connect to Nearby Person</button>
-        </div>
-    </div>
-   
-    <!-- Add this before the container in index.html -->
+    <!-- Consent Modal -->
     <div id="consent-modal" class="consent-modal">
         <div class="consent-content">
             <h2>Location Sharing Consent</h2>
@@ -41,24 +16,51 @@
             <button id="consent-no" class="connect-btn">No, Thanks</button>
         </div>
     </div>
-    <select id="radius-selector" onchange="showAvailablePersons(this.value)">
-        <option value="1000">1 km</option>
-        <option value="5000" selected>5 km</option>
-        <option value="10000">10 km</option>
-    </select>
-    <button id="revoke-location-btn" class="connect-btn hidden" onclick="revokeLocation()">Stop Sharing Location</button>
 
-    <div id="dashboard-tab" class="tab-content">
-        <h3>Your Dashboard</h3>
-        <div id="dashboard-content"></div>
-        <button id="toggle-location-btn" class="connect-btn">Stop Sharing Location</button>
-        <h4>Update Preferences</h4>
-        <input type="text" id="topics" placeholder="Topics (comma-separated, e.g., movies,gaming)">
-        <input type="text" id="language" placeholder="Language (e.g., en, es)">
-        <input type="text" id="ageRange" placeholder="Age Range (e.g., 18-30)">
-        <button id="update-preferences-btn" class="connect-btn">Update Preferences</button>
+    <div class="container">
+        <h1>ChatRoulette Lite</h1>
+        <div class="tabs">
+            <button class="tab-btn active" onclick="showTab('chat')">Chat Now</button>
+            <button class="tab-btn" onclick="showTab('people')">Available Persons</button>
+            <button class="tab-btn" onclick="showTab('dashboard')">Dashboard</button>
+        </div>
+        <div id="chat-tab" class="tab-content active">
+            <div id="status" class="status-bar">Click "Connect" to start chatting!</div>
+            <div id="topic" class="topic-card hidden">
+                Topic Starter: <span id="topic-text"></span>
+                <span id="timer" class="timer-box">5:00</span>
+            </div>
+            <div id="chat-box" class="chat-console"></div>
+            <div class="input-container hidden">
+                <input id="message-input" class="input-field" type="text" placeholder="Type a message...">
+                <button id="send-btn" class="send-btn">➤</button>
+            </div>
+            <button id="connect-btn" class="connect-btn">Connect</button>
+        </div>
+        <div id="people-tab" class="tab-content">
+            <div id="people-list" class="people-list">
+                <p>Fetching available persons in your area...</p>
+            </div>
+            <select id="radius-selector" class="radius-selector" onchange="showAvailablePersons(this.value)">
+                <option value="1000">1 km</option>
+                <option value="5000" selected>5 km</option>
+                <option value="10000">10 km</option>
+            </select>
+            <button id="connect-person-btn" class="connect-btn hidden">Connect to Nearby Person</button>
+        </div>
+        <div id="dashboard-tab" class="tab-content">
+            <h3>Your Dashboard</h3>
+            <div id="dashboard-content"></div>
+            <button id="revoke-location-btn" class="connect-btn" onclick="revokeLocation()">Stop Sharing Location</button>
+            <h4>Update Preferences</h4>
+            <input type="text" id="topics" placeholder="Topics (comma-separated, e.g., movies,gaming)">
+            <input type="text" id="language" placeholder="Language (e.g., en, es)">
+            <input type="text" id="ageRange" placeholder="Age Range (e.g., 18-30)">
+            <button id="update-preferences-btn" class="connect-btn">Update Preferences</button>
+        </div>
     </div>
-    <script src="https://js.pusher.com/7.0/pusher.min.js"></script>
+
+    <script src="https://js.pusher.com/8.4.0/pusher.min.js"></script>
     <script src="script.js"></script>
 </body>
 </html>
