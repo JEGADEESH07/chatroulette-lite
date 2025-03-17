@@ -50,32 +50,26 @@ const Message = mongoose.model('Message', new mongoose.Schema({
 
 // API endpoints
 app.get('/api/users/nearby', async (req, res) => {
-    const { latitude, longitude, radius = 5000, topics, language, ageRange } = req.query;
     try {
-        console.log('Query params:', { latitude, longitude, radius, topics, language, ageRange });
-        let matchQuery = {
-            $geoNear: {
-                near: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
-                distanceField: 'dist.calculated',
-                maxDistance: parseInt(radius),
-                spherical: true
+        const { latitude, longitude, radius } = req.query;
+        // Example: Fetch users from MongoDB
+        const users = await User.find({
+            location: {
+                $near: {
+                    $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
+                    $maxDistance: parseFloat(radius)
+                }
             }
-        };
-
-        if (topics) matchQuery.$match = { 'preferences.topics': { $in: topics.split(',') } };
-        if (language) matchQuery.$match = { 'preferences.language': language };
-        if (ageRange) {
-            const [min, max] = ageRange.split('-').map(Number);
-            matchQuery.$match = { ...matchQuery.$match, 'preferences.ageRange.min': { $lte: max }, 'preferences.ageRange.max': { $gte: min } };
-        }
-
-        console.log('Aggregation query:', matchQuery);
-        const nearbyUsers = await User.aggregate([matchQuery]);
-        console.log('Query result:', nearbyUsers);
-        res.json(nearbyUsers);
+        });
+        // Ensure preferredName is included in the response
+        res.json(users.map(user => ({
+            _id: user._id,
+            preferredName: user.preferredName || 'Anonymous',
+            preferences: user.preferences,
+            dist: user.dist
+        })));
     } catch (error) {
-        console.error('Error in /api/users/nearby:', error.stack);
-        res.status(500).json({ error: 'Error fetching nearby users', details: error.message });
+        res.status(500).json({ error: 'Error fetching nearby users' });
     }
 });
 

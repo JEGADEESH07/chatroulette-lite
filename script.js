@@ -126,12 +126,12 @@ document.addEventListener('DOMContentLoaded', () => {
         })
             .then(response => response.json())
             .then(data => {
-                document.getElementById('status').textContent = `Connected with ${data.otherUserName} (User ${userId})`;
+                document.getElementById('status').textContent = `Connected with ${data.otherUserName || 'Anonymous'} (User ${userId})`;
                 document.getElementById('topic').classList.remove('hidden');
                 document.getElementById('input-container').classList.remove('hidden');
                 document.getElementById('connect-btn').classList.add('hidden');
                 startTimer();
-                setupPusher(preferredName, userId); // Pass preferred name to Pusher
+                setupPusher(preferredName, userId);
             })
             .catch(error => console.error('Error connecting:', error));
     }
@@ -164,7 +164,7 @@ document.addEventListener('DOMContentLoaded', () => {
             const chatBox = document.getElementById('chat-box');
             const messageDiv = document.createElement('div');
             messageDiv.classList.add('message', data.sender === preferredName ? 'sent' : 'received');
-            messageDiv.innerHTML = `${data.message}<span class="time">${new Date().toLocaleTimeString()}</span>`;
+            messageDiv.innerHTML = `${data.sender}: ${data.message}<span class="time">${new Date().toLocaleTimeString()}</span>`;
             chatBox.appendChild(messageDiv);
             chatBox.scrollTop = chatBox.scrollHeight;
         });
@@ -231,6 +231,8 @@ document.addEventListener('DOMContentLoaded', () => {
     // Function to show available persons
     function showAvailablePersons(radius = 5000) {
         const preferredName = localStorage.getItem('preferredName') || 'Anonymous';
+        const peopleList = document.getElementById('people-list');
+        const connectPersonBtn = document.getElementById('connect-person-btn');
         const loadingSpinner = document.getElementById('loading-spinner');
         loadingSpinner.classList.remove('hidden');
     
@@ -248,10 +250,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     } else {
                         nearbyUsers.forEach(user => {
                             const prefs = user.preferences || {};
+                            // Use the user's preferred name if available, otherwise fall back to 'Anonymous'
+                            const userName = user.preferredName || 'Anonymous';
                             peopleList.innerHTML += `
                                 <p>
                                     <div class="user-details">
-                                        <span class="name">${preferredName} (User ${user._id})</span>
+                                        <span class="name">${userName} (User ${user._id})</span>
                                         <span class="info">${Math.round(user.dist.calculated / 1000)} km away (Topics: ${prefs.topics || 'None'})</span>
                                     </div>
                                     <button class="connect-person-btn-small" onclick="connectToPerson('${user._id}')">Connect</button>

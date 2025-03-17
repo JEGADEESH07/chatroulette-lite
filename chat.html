@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ChatRoulette Lite</title>
+    <link rel="stylesheet" href="style.css">
+    <script src="https://js.pusher.com/7.2/pusher.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>ChatRoulette Lite</h1>
+        <div class="tabs">
+            <button class="tab-btn" onclick="showTab('chat')">Chat Now</button>
+            <button class="tab-btn active" onclick="showTab('people')">Available Persons</button>
+            <button class="tab-btn" onclick="showTab('dashboard')">Dashboard</button>
+        </div>
+
+        <div id="chat-tab" class="tab-content">
+            <p id="status">Click "Connect" to start chatting!</p>
+            <div id="topic" class="hidden">
+                <span>Topic Starter:</span> <span id="topic-text"></span>
+                <span id="timer">5:00</span>
+            </div>
+            <div id="chat-box"></div>
+            <div class="input-container hidden">
+                <input type="text" id="message-input" placeholder="Type a message...">
+                <button id="send-btn">Send</button>
+            </div>
+            <button id="connect-btn">Connect</button>
+        </div>
+
+        <div id="people-tab" class="tab-content">
+            <div class="radius-selector">
+                <label for="radius">Search Radius:</label>
+                <select id="radius" onchange="showAvailablePersons(this.value)">
+                    <option value="5000">5 km</option>
+                    <option value="10000">10 km</option>
+                    <option value="20000">20 km</option>
+                    <option value="50000">50 km</option>
+                </select>
+            </div>
+            <div id="people-list">
+                <h3>Available Persons Nearby</h3>
+                <div id="loading-spinner" class="spinner hidden"></div>
+            </div>
+            <button id="connect-person-btn" class="connect-person-btn hidden">Connect to Nearby Person</button>
+        </div>
+
+        <div id="dashboard-tab" class="tab-content">
+            <h3>Dashboard</h3>
+            <div class="dashboard-cards">
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <span class="card-icon">📍</span>
+                        <h4>Location</h4>
+                    </div>
+                    <p id="location-info">Not shared</p>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <span class="card-icon">🌐</span>
+                        <h4>Online Status</h4>
+                    </div>
+                    <p id="online-status">Offline</p>
+                </div>
+                <div class="dashboard-card" id="preferences-card">
+                    <div class="card-header">
+                        <span class="card-icon">⚙️</span>
+                        <h4>Preferences</h4>
+                    </div>
+                    <p id="preferences-info">Not defined</p>
+                </div>
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <span class="card-icon">⏳</span>
+                        <h4>Last Chatted</h4>
+                    </div>
+                    <p id="last-chatted">Not available</p>
+                </div>
+            </div>
+            <h4 class="history-title">Chat History</h4>
+            <div class="history-log" id="history-log">
+                <!-- History entries will be dynamically added here -->
+            </div>
+        </div>
+        
+        <div id="preferences-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Select Your Preference</h3>
+                <select id="preference-select">
+                    <option value="" disabled selected>Choose a preference</option>
+                    <option value="Movies & TV">Movies & TV</option>
+                    <option value="Music">Music</option>
+                    <option value="Sports">Sports</option>
+                </select>
+                <button id="preference-save">Save</button>
+                <button id="preference-cancel">Cancel</button>
+            </div>
+        </div>
+        
+        <div id="preferences-modal" class="modal hidden">
+            <div class="modal-content">
+                <h3>Select Your Preference</h3>
+                <select id="preference-select">
+                    <option value="" disabled selected>Choose a preference</option>
+                    <option value="Movies & TV">Movies & TV</option>
+                    <option value="Music">Music</option>
+                    <option value="Sports">Sports</option>
+                </select>
+                <button id="preference-save">Save</button>
+                <button id="preference-cancel">Cancel</button>
+            </div>
+        </div>
+
+        <div id="consent-modal" class="modal">
+            <div class="modal-content">
+                <h3>Location Consent</h3>
+                <p>We need access to your location to find nearby persons. Do you consent?</p>
+                <button id="consent-yes">Yes</button>
+                <button id="consent-no">No</button>
+            </div>
+        </div>
+    </div>
+    <script src="script.js"></script>
+</body>
+</html>
