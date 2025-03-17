@@ -244,13 +244,13 @@ document.addEventListener('DOMContentLoaded', () => {
                     const response = await fetch(`https://chatroulette-lite.onrender.com/api/users/nearby?latitude=${lat}&longitude=${lon}&radius=${radius}`);
                     if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                     const nearbyUsers = await response.json();
+                    console.log('Nearby users response:', nearbyUsers); // Debug log
                     peopleList.innerHTML = '<h3>Available Persons Nearby</h3>';
                     if (nearbyUsers.length === 0) {
                         peopleList.innerHTML += '<p>No nearby users found. Try adjusting the radius.</p>';
                     } else {
                         nearbyUsers.forEach(user => {
                             const prefs = user.preferences || {};
-                            // Use the user's preferred name if available, otherwise fall back to 'Anonymous'
                             const userName = user.preferredName || 'Anonymous';
                             peopleList.innerHTML += `
                                 <p>
@@ -386,10 +386,10 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(error => console.error('Error loading dashboard:', error));
     
-        // Populate Chat History with preferred name
+        // Fetch chat history (mock data for now, replace with server fetch later)
         const historyLog = document.getElementById('history-log');
         const mockHistory = [
-            { name: preferredName, online: true, age: 22 }, // Use user's preferred name
+            { name: preferredName, online: true, age: 22 },
             { name: 'Alex', online: false, age: 25 },
             { name: 'Morgan', online: true, age: 30 }
         ];

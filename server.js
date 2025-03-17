@@ -52,7 +52,6 @@ const Message = mongoose.model('Message', new mongoose.Schema({
 app.get('/api/users/nearby', async (req, res) => {
     try {
         const { latitude, longitude, radius } = req.query;
-        // Example: Fetch users from MongoDB
         const users = await User.find({
             location: {
                 $near: {
@@ -61,14 +60,14 @@ app.get('/api/users/nearby', async (req, res) => {
                 }
             }
         });
-        // Ensure preferredName is included in the response
         res.json(users.map(user => ({
             _id: user._id,
             preferredName: user.preferredName || 'Anonymous',
-            preferences: user.preferences,
-            dist: user.dist
+            preferences: user.preferences || {},
+            dist: user.dist || { calculated: 0 }
         })));
     } catch (error) {
+        console.error('Error fetching nearby users:', error);
         res.status(500).json({ error: 'Error fetching nearby users' });
     }
 });
@@ -153,11 +152,29 @@ app.post('/api/user/toggle-location', async (req, res) => {
 });
 
 app.post('/api/connect/:userId', async (req, res) => {
-    const { userId } = req.params;
-    const { preferredName } = req.body;
-    // Store preferredName with userId (e.g., in MongoDB)
-    // Example: await User.findByIdAndUpdate(userId, { preferredName });
-    res.json({ success: true, otherUserName: 'OtherUser', preferredName });
+    try {
+        const { userId } = req.params;
+        const { preferredName } = req.body;
+        if (!preferredName) {
+            return res.status(400).json({ error: 'Preferred name is required' });
+        }
+        // Update user with preferredName (example for MongoDB)
+        const user = await User.findByIdAndUpdate(
+            userId,
+            { preferredName },
+            { new: true, upsert: true }
+        );
+        // Simulate finding another user to connect with
+        const otherUser = await User.findOne({ _id: { $ne: userId } });
+        res.json({
+            success: true,
+            otherUserName: otherUser ? otherUser.preferredName || 'Anonymous' : 'Anonymous',
+            preferredName
+        });
+    } catch (error) {
+        console.error('Error connecting:', error);
+        res.status(500).json({ error: 'Internal server error' });
+    }
 });
 
 // Handle root route to serve index.html
