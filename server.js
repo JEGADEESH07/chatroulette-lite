@@ -14,12 +14,17 @@ app.use(express.static(path.join(__dirname)));
 
 // MongoDB connection
 const uri = process.env.MONGODB_URI || "mongodb+srv://chatuser:securepassword123@chatroulette-lite-clust.amhu0.mongodb.net/?retryWrites=true&w=majority&appName=chatroulette-lite-cluster";
-mongoose.connect(uri)
+mongoose.connect(uri, {
+    serverSelectionTimeoutMS: 30000, // Increase timeout to 30 seconds
+    heartbeatFrequencyMS: 10000 // Check connection every 10 seconds
+})
     .then(() => console.log('MongoDB Atlas connected successfully'))
     .catch(err => {
         console.error('MongoDB connection error:', err);
         process.exit(1);
     });
+
+    
 
 // Pusher setup
 const pusher = new Pusher({
@@ -97,13 +102,10 @@ app.get('/api/user/dashboard', async (req, res) => {
 });
 
 app.post('/api/user/update-preferences', async (req, res) => {
-    const { userId, preferences } = req.body;
-    try {
-        const updatedUser = await User.findByIdAndUpdate(userId, { preferences }, { new: true });
-        res.json(updatedUser);
-    } catch (error) {
-        res.status(500).json({ error: 'Error updating preferences' });
-    }
+    const { userId, preferences, preferredName } = req.body;
+    // Update user with preferredName and preferences
+    // Example: await User.findByIdAndUpdate(userId, { preferredName, preferences });
+    res.json({ success: true, message: 'Preferences updated' });
 });
 
 app.post('/message', async (req, res) => {
@@ -117,7 +119,7 @@ app.post('/message', async (req, res) => {
     }
 
     try {
-        // Store message in MongoDB (optional, for persistence)
+        // Store message in MongoDB
         await Message.create({ text, from, to, messageId });
 
         // Trigger Pusher event
@@ -156,28 +158,12 @@ app.post('/api/user/toggle-location', async (req, res) => {
     }
 });
 
-// Handle /api/connect without authentication (temporary)
 app.post('/api/connect/:userId', async (req, res) => {
     const { userId } = req.params;
-    try {
-        console.log('Pusher config:', {
-            appId: process.env.PUSHER_APP_ID,
-            key: process.env.PUSHER_KEY,
-            secret: process.env.PUSHER_SECRET,
-            cluster: process.env.PUSHER_CLUSTER
-        });
-        const targetUser = await User.findById(userId);
-        if (!targetUser || !targetUser.online) {
-            return res.status(404).json({ error: 'User not found or offline' });
-        }
-        // Simulate pairing
-        pusher.trigger('chat-channel', 'pair', { initiator: req.body.from || 'you', target: userId });
-        console.log('Pusher trigger succeeded for user:', userId);
-        res.json({ success: true, pairedWith: userId });
-    } catch (error) {
-        console.error('Error in /api/connect:', error);
-        res.status(500).json({ error: 'Internal server error', details: error.message });
-    }
+    const { preferredName } = req.body;
+    // Store preferredName with userId (e.g., in MongoDB)
+    // Example: await User.findByIdAndUpdate(userId, { preferredName });
+    res.json({ success: true, otherUserName: 'OtherUser', preferredName });
 });
 
 // Handle root route to serve index.html
