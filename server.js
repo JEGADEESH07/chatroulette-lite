@@ -48,7 +48,6 @@ const Message = mongoose.model('Message', new mongoose.Schema({
     timestamp: { type: Date, default: Date.now }
 }));
 
-// API endpoints
 app.get('/api/users/nearby', async (req, res) => {
     try {
         const { latitude, longitude, radius } = req.query;
@@ -56,7 +55,6 @@ app.get('/api/users/nearby', async (req, res) => {
         const lon = parseFloat(longitude);
         const maxDistance = parseFloat(radius);
 
-        // Find nearby users using MongoDB $near query
         const users = await User.aggregate([
             {
                 $geoNear: {
@@ -73,16 +71,15 @@ app.get('/api/users/nearby', async (req, res) => {
                     preferences: 1,
                     location: 1,
                     dist: 1,
-                    online: { $literal: true } // Simulate online status for now
+                    online: { $literal: true }
                 }
             }
         ]);
 
-        // Map the response to ensure correct format
         const formattedUsers = users.map(user => ({
             _id: user._id,
             preferredName: user.preferredName || 'Anonymous',
-            preferences: user.preferences || { topics: ['chat'] }, // Default to 'chat' if missing
+            preferences: user.preferences || { topics: ['chat'], ageRange: { min: 18, max: 99 } },
             dist: user.dist || { calculated: 0 },
             online: user.online || false
         }));

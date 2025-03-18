@@ -234,6 +234,16 @@ document.addEventListener('DOMContentLoaded', () => {
         const peopleList = document.getElementById('people-list');
         const connectPersonBtn = document.getElementById('connect-person-btn');
         const loadingSpinner = document.getElementById('loading-spinner');
+    
+        if (!peopleList || !connectPersonBtn || !loadingSpinner) {
+            console.error('Required DOM elements not found:', {
+                peopleList: !!peopleList,
+                connectPersonBtn: !!connectPersonBtn,
+                loadingSpinner: !!loadingSpinner
+            });
+            return;
+        }
+    
         loadingSpinner.classList.remove('hidden');
     
         if (navigator.geolocation) {
@@ -244,7 +254,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     const response = await fetch(`https://chatroulette-lite.onrender.com/api/users/nearby?latitude=${lat}&longitude=${lon}&radius=${radius}`);
                     if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                     const nearbyUsers = await response.json();
-                    console.log('Nearby users response:', nearbyUsers); // Debug log
+                    console.log('Nearby users response:', nearbyUsers);
                     peopleList.innerHTML = '<h3>Available Persons Nearby</h3>';
                     if (nearbyUsers.length === 0) {
                         peopleList.innerHTML += '<p>No nearby users found. Try adjusting the radius.</p>';
@@ -252,11 +262,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         nearbyUsers.forEach(user => {
                             const prefs = user.preferences || {};
                             const userName = user.preferredName || 'Anonymous';
+                            const ageRange = prefs.ageRange ? `${prefs.ageRange.min}-${prefs.ageRange.max}` : 'Not specified';
                             peopleList.innerHTML += `
                                 <p>
                                     <div class="user-details">
                                         <span class="name">${userName} (User ${user._id})</span>
-                                        <span class="info">${Math.round(user.dist.calculated / 1000)} km away (Topics: ${prefs.topics || 'None'})</span>
+                                        <span class="info">${Math.round(user.dist.calculated / 1000)} km away (Topics: ${prefs.topics || 'None'}, Age Range: ${ageRange})</span>
                                     </div>
                                     <button class="connect-person-btn-small" onclick="connectToPerson('${user._id}')">Connect</button>
                                 </p>`;
@@ -418,10 +429,6 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
-
-
-    
-
     // Pusher message handler with deduplication
     channel.bind('message', (data) => {
         console.log('Received message event:', data);
