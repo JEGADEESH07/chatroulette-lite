@@ -52,20 +52,42 @@ const Message = mongoose.model('Message', new mongoose.Schema({
 app.get('/api/users/nearby', async (req, res) => {
     try {
         const { latitude, longitude, radius } = req.query;
-        const users = await User.find({
-            location: {
-                $near: {
-                    $geometry: { type: 'Point', coordinates: [parseFloat(longitude), parseFloat(latitude)] },
-                    $maxDistance: parseFloat(radius)
+        const lat = parseFloat(latitude);
+        const lon = parseFloat(longitude);
+        const maxDistance = parseFloat(radius);
+
+        // Find nearby users using MongoDB $near query
+        const users = await User.aggregate([
+            {
+                $geoNear: {
+                    near: { type: 'Point', coordinates: [lon, lat] },
+                    distanceField: 'dist.calculated',
+                    maxDistance: maxDistance,
+                    spherical: true
+                }
+            },
+            {
+                $project: {
+                    _id: 1,
+                    preferredName: 1,
+                    preferences: 1,
+                    location: 1,
+                    dist: 1,
+                    online: { $literal: true } // Simulate online status for now
                 }
             }
-        });
-        res.json(users.map(user => ({
+        ]);
+
+        // Map the response to ensure correct format
+        const formattedUsers = users.map(user => ({
             _id: user._id,
             preferredName: user.preferredName || 'Anonymous',
-            preferences: user.preferences || {},
-            dist: user.dist || { calculated: 0 }
-        })));
+            preferences: user.preferences || { topics: ['chat'] }, // Default to 'chat' if missing
+            dist: user.dist || { calculated: 0 },
+            online: user.online || false
+        }));
+
+        res.json(formattedUsers);
     } catch (error) {
         console.error('Error fetching nearby users:', error);
         res.status(500).json({ error: 'Error fetching nearby users' });
@@ -158,10 +180,14 @@ app.post('/api/connect/:userId', async (req, res) => {
         if (!preferredName) {
             return res.status(400).json({ error: 'Preferred name is required' });
         }
-        // Update user with preferredName (example for MongoDB)
+        // Update or create user with preferredName and default location
         const user = await User.findByIdAndUpdate(
             userId,
-            { preferredName },
+            {
+                preferredName,
+                location: { type: 'Point', coordinates: [0, 0] }, // Default location
+                online: true
+            },
             { new: true, upsert: true }
         );
         // Simulate finding another user to connect with
@@ -169,7 +195,7 @@ app.post('/api/connect/:userId', async (req, res) => {
         res.json({
             success: true,
             otherUserName: otherUser ? otherUser.preferredName || 'Anonymous' : 'Anonymous',
-            preferredName
+            preferredName: user.preferredName
         });
     } catch (error) {
         console.error('Error connecting:', error);

@@ -357,6 +357,13 @@ document.addEventListener('DOMContentLoaded', () => {
     // Dashboard
     function showDashboard(userId) {
         const preferredName = localStorage.getItem('preferredName') || 'Anonymous';
+        const userInfoElement = document.getElementById('user-info');
+        if (!userInfoElement) {
+            console.error('User info element not found');
+            return;
+        }
+        userInfoElement.textContent = `Welcome, ${preferredName}!`;
+    
         fetch(`https://chatroulette-lite.onrender.com/api/user/dashboard?userId=${userId}`)
             .then(response => response.json())
             .then(data => {
@@ -386,7 +393,7 @@ document.addEventListener('DOMContentLoaded', () => {
             })
             .catch(error => console.error('Error loading dashboard:', error));
     
-        // Fetch chat history (mock data for now, replace with server fetch later)
+        // Populate Chat History (mock data for now)
         const historyLog = document.getElementById('history-log');
         const mockHistory = [
             { name: preferredName, online: true, age: 22 },

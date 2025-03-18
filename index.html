@@ -26,11 +26,11 @@
                 document.getElementById('error-message').classList.remove('hidden');
             }
         });
-
+    
+        // Pre-fill the input with saved name but do not auto-redirect
         const savedName = localStorage.getItem('preferredName');
         if (savedName) {
             document.getElementById('preferred-name').value = savedName;
-            window.location.href = 'chat.html'; // Auto-redirect if name exists
         }
     </script>
 </body>

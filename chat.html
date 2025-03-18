@@ -6,8 +6,15 @@
     <title>ChatRoulette Lite</title>
     <link rel="stylesheet" href="style.css">
     <script src="https://js.pusher.com/7.2/pusher.min.js"></script>
+    <script>
+        // Redirect to index.html if preferred name is not set
+        if (!localStorage.getItem('preferredName')) {
+            window.location.href = 'index.html';
+        }
+    </script>
 </head>
 <body>
+
     <div class="container">
         <h1>ChatRoulette Lite</h1>
         <div class="tabs">
@@ -50,6 +57,13 @@
         <div id="dashboard-tab" class="tab-content">
             <h3>Dashboard</h3>
             <div class="dashboard-cards">
+                <div class="dashboard-card">
+                    <div class="card-header">
+                        <span class="card-icon">👤</span>
+                        <h4>User Info</h4>
+                    </div>
+                    <p id="user-info">Not set</p>
+                </div>
                 <div class="dashboard-card">
                     <div class="card-header">
                         <span class="card-icon">📍</span>
