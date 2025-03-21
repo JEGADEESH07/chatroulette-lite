@@ -1,20 +1,17 @@
 const mongoose = require('mongoose');
 
 const userSchema = new mongoose.Schema({
-    _id: String,
-    preferredName: String,
     location: {
-        type: { type: String, enum: ['Point'], default: 'Point' },
+        type: { type: String, default: 'Point' },
         coordinates: [Number]
     },
+    online: { type: Boolean, default: true },
     preferences: {
         topics: [String],
         language: String,
-        ageRange: String
+        ageRange: { min: Number, max: Number }
     },
-    online: Boolean
+    createdAt: { type: Date, default: Date.now, expires: 3600 }
 });
-userSchema.index({ location: '2dsphere' });
-const User = mongoose.model('User', userSchema);
 
 module.exports = mongoose.model('User', userSchema);

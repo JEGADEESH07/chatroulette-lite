@@ -2,14 +2,21 @@ document.addEventListener('DOMContentLoaded', () => {
     // Generate a unique client ID for this tab
     const clientId = Math.random().toString(36).substring(2, 15);
 
-    // Pusher setup (replace with your actual credentials)
+    // Pusher setup with custom auth endpoint
     const pusher = new Pusher('b14541edb68153cc4354', {
-        cluster: 'ap2'
+        cluster: 'ap2',
+        authEndpoint: 'https://chatroulette-lite.onrender.com/pusher/auth',
+        auth: {
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        }
     });
-    const channel = pusher.subscribe('chat-channel');
 
 
     
+    const channel = pusher.subscribe('chat-channel');
+
     // DOM elements
     const connectBtn = document.getElementById('connect-btn');
     const status = document.getElementById('status');
@@ -92,13 +99,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Random topic starters
     const topics = [
-        'What’s your dream vacation spot?',
-        'Talk about your favorite movie',
-        'What’s the best thing you’ve eaten recently?',
-        'Share a fun fact you know'
+        "What's your dream vacation spot?",
+        "Talk about your favorite movie",
+        "What's the best thing you've eaten recently?",
+        "Share a fun fact you know"
     ];
-
-
 
     // Expose showTab to global scope
     window.showTab = function(tabId) {
@@ -106,8 +111,14 @@ document.addEventListener('DOMContentLoaded', () => {
         const buttons = document.querySelectorAll('.tab-btn');
         tabs.forEach(tab => tab.classList.remove('active'));
         buttons.forEach(btn => btn.classList.remove('active'));
-        document.getElementById(tabId + '-tab').classList.add('active');
-        document.querySelector(`.tab-btn[onclick="showTab('${tabId}')"]`).classList.add('active');
+        const tabElement = document.getElementById(tabId + '-tab');
+        const tabButton = document.querySelector(`.tab-btn[onclick="showTab('${tabId}')"]`);
+        if (tabElement && tabButton) {
+            tabElement.classList.add('active');
+            tabButton.classList.add('active');
+        } else {
+            console.error(`Tab ${tabId} or its button not found`);
+        }
 
         if (tabId === 'dashboard') {
             showDashboard('mockUserId123');
@@ -117,69 +128,132 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     // Expose connectToPerson to global scope
-    function connectToPerson(userId) {
+    window.connectToPerson = function(userId) {
         const preferredName = localStorage.getItem('preferredName') || 'Anonymous';
+        console.log('Initiating connection to user:', userId, 'with preferredName:', preferredName);
         fetch(`https://chatroulette-lite.onrender.com/api/connect/${userId}`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ userId, preferredName })
+            body: JSON.stringify({ preferredName })
         })
-            .then(response => response.json())
-            .then(data => {
-                document.getElementById('status').textContent = `Connected with ${data.otherUserName || 'Anonymous'} (User ${userId})`;
-                document.getElementById('topic').classList.remove('hidden');
-                document.getElementById('input-container').classList.remove('hidden');
-                document.getElementById('connect-btn').classList.add('hidden');
-                startTimer();
-                setupPusher(preferredName, userId);
+            .then(response => {
+                console.log('Connect fetch response status:', response.status);
+                if (!response.ok) {
+                    return response.json().then(err => {
+                        throw new Error(`HTTP error! Status: ${response.status}, Message: ${err.error || 'Unknown error'}`);
+                    });
+                }
+                return response.json();
             })
-            .catch(error => console.error('Error connecting:', error));
+            .then(data => {
+                console.log('Connect response data:', data);
+                if (data.success) {
+                    // Switch to the "Chat Now" tab
+                    window.showTab('chat');
+
+                    // Verify DOM elements exist before updating
+                    const statusElement = document.getElementById('status');
+                    const topicElement = document.getElementById('topic');
+                    const inputContainerElement = document.getElementById('input-container');
+                    const connectBtnElement = document.getElementById('connect-btn');
+                    const timerElement = document.getElementById('timer');
+
+                    if (!statusElement || !topicElement || !inputContainerElement || !connectBtnElement || !timerElement) {
+                        console.error('One or more chat tab elements not found:', {
+                            status: !!statusElement,
+                            topic: !!topicElement,
+                            inputContainer: !!inputContainerElement,
+                            connectBtn: !!connectBtnElement,
+                            timer: !!timerElement
+                        });
+                        alert('Error: Chat interface elements not found. Please try again.');
+                        return;
+                    }
+
+                    // Update the UI
+                    statusElement.textContent = `Connected with ${data.otherUserName || 'Anonymous'} (User ${userId})`;
+                    topicElement.classList.remove('hidden');
+                    inputContainerElement.classList.remove('hidden');
+                    connectBtnElement.classList.add('hidden');
+
+                    // Set a random topic
+                    const topicTextElement = document.getElementById('topic-text');
+                    if (topicTextElement) {
+                        topicTextElement.textContent = topics[Math.floor(Math.random() * topics.length)];
+                    }
+
+                    // Start the timer and set up Pusher
+                    startTimer();
+                    setupPusher(preferredName, userId);
+
+                    // Update state
+                    isConnected = true;
+                    personId = userId;
+                    partnerName = data.otherUserName || 'Anonymous';
+                } else {
+                    console.error('Connection failed:', data.error);
+                    alert('Failed to connect: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                console.error('Error connecting to user:', error);
+                if (error.message.includes('NetworkError')) {
+                    alert('Error connecting: Unable to reach the server. Please check your network connection or try again later.');
+                } else {
+                    alert('Error connecting: ' + error.message);
+                }
+            });
+    };
+
+    // Connect button logic
+    if (connectBtn) {
+        connectBtn.addEventListener('click', () => {
+            if (!isConnected) {
+                showTab('people');
+            } else {
+                resetChat();
+            }
+        });
     }
 
-    // Connect button logic (simplified to prompt for nearby users)
-    connectBtn.addEventListener('click', () => {
-        if (!isConnected) {
-            showTab('people');
-        } else {
-            resetChat();
-        }
-    });
-
     // Send message logic
-    sendBtn.addEventListener('click', sendMessage);
-    messageInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && messageInput.value.trim() !== '') {
-            sendMessage();
-        }
-    });
-
+    if (sendBtn && messageInput) {
+        sendBtn.addEventListener('click', sendMessage);
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && messageInput.value.trim() !== '') {
+                sendMessage();
+            }
+        });
+    }
 
     // Update setupPusher to use preferred name
     function setupPusher(preferredName, userId) {
-        const pusher = new Pusher('your-pusher-key', {
-            cluster: 'your-cluster'
-        });
         const channel = pusher.subscribe(`presence-chat-${userId}`);
         channel.bind('message', data => {
             const chatBox = document.getElementById('chat-box');
-            const messageDiv = document.createElement('div');
-            messageDiv.classList.add('message', data.sender === preferredName ? 'sent' : 'received');
-            messageDiv.innerHTML = `${data.sender}: ${data.message}<span class="time">${new Date().toLocaleTimeString()}</span>`;
-            chatBox.appendChild(messageDiv);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        });
-    
-        document.getElementById('send-btn').addEventListener('click', () => {
-            const messageInput = document.getElementById('message-input');
-            const message = messageInput.value.trim();
-            if (message) {
-                channel.trigger('client-message', {
-                    message: message,
-                    sender: preferredName
-                });
-                messageInput.value = '';
+            if (chatBox) {
+                const messageDiv = document.createElement('div');
+                messageDiv.classList.add('message', data.sender === preferredName ? 'sent' : 'received');
+                messageDiv.innerHTML = `${data.sender}: ${data.message}<span class="time">${new Date().toLocaleTimeString()}</span>`;
+                chatBox.appendChild(messageDiv);
+                chatBox.scrollTop = chatBox.scrollHeight;
             }
         });
+
+        const sendBtn = document.getElementById('send-btn');
+        if (sendBtn) {
+            sendBtn.addEventListener('click', () => {
+                const messageInput = document.getElementById('message-input');
+                const message = messageInput.value.trim();
+                if (message) {
+                    channel.trigger('client-message', {
+                        message: message,
+                        sender: preferredName
+                    });
+                    messageInput.value = '';
+                }
+            });
+        }
     }
 
     function sendMessage() {
@@ -189,12 +263,12 @@ document.addEventListener('DOMContentLoaded', () => {
             const messageId = `${message}-${now}`; // Unique ID for deduplication
             chatBox.innerHTML += `<div class="message sent"><span>${message}</span><span class="time">${now}</span></div>`;
             chatBox.scrollTop = chatBox.scrollHeight;
-
+    
             fetch('https://chatroulette-lite.onrender.com/message', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ text: message, from: clientId, to: personId, messageId })
-            }).catch(err => console.error('Error sending message:', err));
+            }).catch(err => console.error('Error sending message:', err)); // Line 268
             messageInput.value = '';
             lastMessageId = messageId;
         }
@@ -202,6 +276,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     // Timer logic
     function startTimer() {
+        if (!timerDiv) {
+            console.error('Timer element not found');
+            return;
+        }
         const timer = setInterval(() => {
             timeLeft--;
             const minutes = Math.floor(timeLeft / 60);
@@ -219,13 +297,15 @@ document.addEventListener('DOMContentLoaded', () => {
         isConnected = false;
         personId = null;
         partnerName = '';
-        connectBtn.textContent = 'Connect';
-        status.textContent = 'Click "Connect" to start chatting!';
-        topicDiv.classList.add('hidden');
-        document.querySelector('.input-container').classList.add('hidden');
-        chatBox.innerHTML = '';
+        if (connectBtn) connectBtn.textContent = 'Connect';
+        if (status) status.textContent = 'Click "Connect" to start chatting!';
+        if (topicDiv) topicDiv.classList.add('hidden');
+        const inputContainer = document.getElementById('input-container');
+        if (inputContainer) inputContainer.classList.add('hidden');
+        if (chatBox) chatBox.innerHTML = '';
         timeLeft = 300;
         lastMessageId = '';
+        if (timerDiv) timerDiv.textContent = '5:00';
     }
 
     // Function to show available persons
@@ -234,18 +314,8 @@ document.addEventListener('DOMContentLoaded', () => {
         const peopleList = document.getElementById('people-list');
         const connectPersonBtn = document.getElementById('connect-person-btn');
         const loadingSpinner = document.getElementById('loading-spinner');
-    
-        if (!peopleList || !connectPersonBtn || !loadingSpinner) {
-            console.error('Required DOM elements not found:', {
-                peopleList: !!peopleList,
-                connectPersonBtn: !!connectPersonBtn,
-                loadingSpinner: !!loadingSpinner
-            });
-            return;
-        }
-    
-        loadingSpinner.classList.remove('hidden');
-    
+        if (loadingSpinner) loadingSpinner.classList.remove('hidden');
+
         if (navigator.geolocation) {
             navigator.geolocation.getCurrentPosition(async position => {
                 const lat = position.coords.latitude;
@@ -254,7 +324,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     const response = await fetch(`https://chatroulette-lite.onrender.com/api/users/nearby?latitude=${lat}&longitude=${lon}&radius=${radius}`);
                     if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
                     const nearbyUsers = await response.json();
-                    console.log('Nearby users response:', nearbyUsers);
                     peopleList.innerHTML = '<h3>Available Persons Nearby</h3>';
                     if (nearbyUsers.length === 0) {
                         peopleList.innerHTML += '<p>No nearby users found. Try adjusting the radius.</p>';
@@ -262,22 +331,21 @@ document.addEventListener('DOMContentLoaded', () => {
                         nearbyUsers.forEach(user => {
                             const prefs = user.preferences || {};
                             const userName = user.preferredName || 'Anonymous';
-                            const ageRange = prefs.ageRange ? `${prefs.ageRange.min}-${prefs.ageRange.max}` : 'Not specified';
                             peopleList.innerHTML += `
                                 <p>
                                     <div class="user-details">
                                         <span class="name">${userName} (User ${user._id})</span>
-                                        <span class="info">${Math.round(user.dist.calculated / 1000)} km away (Topics: ${prefs.topics || 'None'}, Age Range: ${ageRange})</span>
+                                        <span class="info">${Math.round(user.dist.calculated / 1000)} km away (Topics: ${prefs.topics || 'None'})</span>
                                     </div>
-                                    <button class="connect-person-btn-small" onclick="connectToPerson('${user._id}')">Connect</button>
+                                    <button class="connect-person-btn-small" onclick="window.connectToPerson('${user._id}')">Connect</button>
                                 </p>`;
                         });
                     }
-                    connectPersonBtn.classList.remove('hidden');
+                    if (connectPersonBtn) connectPersonBtn.classList.remove('hidden');
                 } catch (error) {
                     peopleList.innerHTML = '<p>Error fetching nearby users. Details: ' + error.message + '</p>';
                 } finally {
-                    loadingSpinner.classList.add('hidden');
+                    if (loadingSpinner) loadingSpinner.classList.add('hidden');
                 }
             }, error => {
                 peopleList.innerHTML = '<p>Location access denied or error. Showing mock data.</p>';
@@ -292,11 +360,11 @@ document.addEventListener('DOMContentLoaded', () => {
                                 <span class="name">${person.name}</span>
                                 <span class="info">${person.distance}</span>
                             </div>
-                            <button class="connect-person-btn-small" onclick="connectToPerson('${person.id}')">Connect</button>
+                            <button class="connect-person-btn-small" onclick="window.connectToPerson('${person.id}')">Connect</button>
                         </p>`;
                 });
-                connectPersonBtn.classList.remove('hidden');
-                loadingSpinner.classList.add('hidden');
+                if (connectPersonBtn) connectPersonBtn.classList.remove('hidden');
+                if (loadingSpinner) loadingSpinner.classList.add('hidden');
             });
         } else {
             peopleList.innerHTML = '<p>Geolocation not supported. Showing mock data.</p>';
@@ -311,39 +379,43 @@ document.addEventListener('DOMContentLoaded', () => {
                             <span class="name">${person.name}</span>
                             <span class="info">${person.distance}</span>
                         </div>
-                        <button class="connect-person-btn-small" onclick="connectToPerson('${person.id}')">Connect</button>
+                        <button class="connect-person-btn-small" onclick="window.connectToPerson('${person.id}')">Connect</button>
                     </p>`;
             });
-            connectPersonBtn.classList.remove('hidden');
-            loadingSpinner.classList.add('hidden');
+            if (connectPersonBtn) connectPersonBtn.classList.remove('hidden');
+            if (loadingSpinner) loadingSpinner.classList.add('hidden');
         }
     }
 
     // Consent modal
-    consentModal.style.display = 'block';
+    if (consentModal) consentModal.style.display = 'block';
 
-    consentYes.addEventListener('click', () => {
-        consentModal.style.display = 'none';
-        localStorage.setItem('locationConsent', 'true');
-        showAvailablePersons();
-    });
-
-    consentNo.addEventListener('click', () => {
-        consentModal.style.display = 'none';
-        localStorage.setItem('locationConsent', 'false');
-        peopleList.innerHTML = '<p>Location sharing declined. Using mock data.</p>';
-        const mockPersons = [
-            { id: 1, name: 'Alex', distance: '1.2 km away' },
-            { id: 2, name: 'Sam', distance: '2.5 km away' }
-        ];
-        mockPersons.forEach(person => {
-            peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson('${person.id}')">Connect</button></p>`;
+    if (consentYes) {
+        consentYes.addEventListener('click', () => {
+            if (consentModal) consentModal.style.display = 'none';
+            localStorage.setItem('locationConsent', 'true');
+            showAvailablePersons();
         });
-        connectPersonBtn.classList.remove('hidden');
-    });
+    }
+
+    if (consentNo) {
+        consentNo.addEventListener('click', () => {
+            if (consentModal) consentModal.style.display = 'none';
+            localStorage.setItem('locationConsent', 'false');
+            peopleList.innerHTML = '<p>Location sharing declined. Using mock data.</p>';
+            const mockPersons = [
+                { id: 1, name: 'Alex', distance: '1.2 km away' },
+                { id: 2, name: 'Sam', distance: '2.5 km away' }
+            ];
+            mockPersons.forEach(person => {
+                peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="window.connectToPerson('${person.id}')">Connect</button></p>`;
+            });
+            if (connectPersonBtn) connectPersonBtn.classList.remove('hidden');
+        });
+    }
 
     if (localStorage.getItem('locationConsent') === 'true') {
-        consentModal.style.display = 'none';
+        if (consentModal) consentModal.style.display = 'none';
         showAvailablePersons();
     }
 
@@ -360,21 +432,14 @@ document.addEventListener('DOMContentLoaded', () => {
             { id: 2, name: 'Sam', distance: '2.5 km away' }
         ];
         mockPersons.forEach(person => {
-            peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="connectToPerson('${person.id}')">Connect</button></p>`;
+            peopleList.innerHTML += `<p>${person.name} - ${person.distance} <button class="connect-person-btn-small" onclick="window.connectToPerson('${person.id}')">Connect</button></p>`;
         });
-        connectPersonBtn.classList.remove('hidden');
+        if (connectPersonBtn) connectPersonBtn.classList.remove('hidden');
     };
 
     // Dashboard
     function showDashboard(userId) {
         const preferredName = localStorage.getItem('preferredName') || 'Anonymous';
-        const userInfoElement = document.getElementById('user-info');
-        if (!userInfoElement) {
-            console.error('User info element not found');
-            return;
-        }
-        userInfoElement.textContent = `Welcome, ${preferredName}!`;
-    
         fetch(`https://chatroulette-lite.onrender.com/api/user/dashboard?userId=${userId}`)
             .then(response => response.json())
             .then(data => {
@@ -391,27 +456,27 @@ document.addEventListener('DOMContentLoaded', () => {
                 } else {
                     document.getElementById('location-info').textContent = 'Not supported';
                 }
-    
+
                 // Online Status: Assume user is online if interacting with dashboard
                 document.getElementById('online-status').textContent = 'Online';
                 document.getElementById('online-status').classList.add('green-text');
-    
+
                 // Preferences: Keep existing or set to "Not defined"
                 document.getElementById('preferences-info').textContent = data.preferences ? `Pref: ${data.preferences.topics?.join(', ')}` : 'Not defined';
-    
+
                 // Last Chatted: Simulate with current date
                 document.getElementById('last-chatted').textContent = new Date().toLocaleString();
             })
             .catch(error => console.error('Error loading dashboard:', error));
-    
-        // Populate Chat History (mock data for now)
+
+        // Populate Chat History with preferred name
         const historyLog = document.getElementById('history-log');
         const mockHistory = [
             { name: preferredName, online: true, age: 22 },
             { name: 'Alex', online: false, age: 25 },
             { name: 'Morgan', online: true, age: 30 }
         ];
-    
+
         historyLog.innerHTML = ''; // Clear existing entries
         mockHistory.forEach(person => {
             const entry = document.createElement('div');
@@ -428,7 +493,7 @@ document.addEventListener('DOMContentLoaded', () => {
             historyLog.appendChild(entry);
         });
     }
-    
+
     // Pusher message handler with deduplication
     channel.bind('message', (data) => {
         console.log('Received message event:', data);

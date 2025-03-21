@@ -8,30 +8,66 @@
 </head>
 <body>
     <div class="container">
-        <h1>ChatRoulette Lite</h1>
+        <h1 class="title">ChatRoulette Lite</h1>
         <div class="entry-form">
-            <h3>Enter Your Preferred Name</h3>
+            <h3 class="subtitle">Enter Your Preferred Name</h3>
             <input type="text" id="preferred-name" placeholder="Choose a name" required>
-            <button id="start-btn">Start Chatting</button>
+            <div class="button-group">
+                <button id="start-btn" class="btn primary">Start Chatting</button>
+            </div>
             <p id="error-message" class="error-message hidden">Name is required.</p>
+            <p id="saved-name-message" class="saved-name-message hidden">
+                Saved name found: <span id="saved-name-display"></span>. 
+                <button id="use-saved-name-btn" class="btn secondary">Use this name</button>
+            </p>
         </div>
     </div>
     <script>
-        document.getElementById('start-btn').addEventListener('click', () => {
-            const preferredName = document.getElementById('preferred-name').value.trim();
-            if (preferredName) {
-                localStorage.setItem('preferredName', preferredName);
-                window.location.href = 'chat.html';
-            } else {
-                document.getElementById('error-message').classList.remove('hidden');
+        document.addEventListener('DOMContentLoaded', () => {
+            const preferredNameInput = document.getElementById('preferred-name');
+            const startBtn = document.getElementById('start-btn');
+            const errorMessage = document.getElementById('error-message');
+            const savedNameMessage = document.getElementById('saved-name-message');
+            const savedNameDisplay = document.getElementById('saved-name-display');
+            const useSavedNameBtn = document.getElementById('use-saved-name-btn');
+
+            // Check if a saved name exists
+            const savedName = localStorage.getItem('preferredName');
+            if (savedName) {
+                // Display the saved name but do not auto-fill the input
+                savedNameDisplay.textContent = savedName;
+                savedNameMessage.classList.remove('hidden');
             }
+
+            // Handle "Start Chatting" button click
+            startBtn.addEventListener('click', () => {
+                const preferredName = preferredNameInput.value.trim();
+                if (preferredName) {
+                    localStorage.setItem('preferredName', preferredName);
+                    window.location.href = 'chat.html';
+                } else {
+                    errorMessage.classList.remove('hidden');
+                }
+            });
+
+            // Handle "Use this name" button click for saved name
+            if (useSavedNameBtn) {
+                useSavedNameBtn.addEventListener('click', () => {
+                    const preferredName = preferredNameInput.value.trim();
+                    if (preferredName) {
+                        localStorage.setItem('preferredName', preferredName);
+                        window.location.href = 'chat.html';
+                    } else {
+                        errorMessage.classList.remove('hidden');
+                    }
+                });
+            }
+
+            // Hide error message when user starts typing
+            preferredNameInput.addEventListener('input', () => {
+                errorMessage.classList.add('hidden');
+            });
         });
-    
-        // Pre-fill the input with saved name but do not auto-redirect
-        const savedName = localStorage.getItem('preferredName');
-        if (savedName) {
-            document.getElementById('preferred-name').value = savedName;
-        }
     </script>
 </body>
 </html>
